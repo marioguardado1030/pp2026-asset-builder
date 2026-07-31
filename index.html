@@ -103,18 +103,14 @@ canvas{display:block;border-radius:5px;box-shadow:0 6px 40px rgba(0,0,0,.8)}
 </div>
 
 <script>
-// All coordinates in 1080px space
 const SPECS={
   '916':{W:1080,H:1920,label:'1080 × 1920 · 9:16 Reel'},
   '45': {W:1080,H:1350,label:'1080 × 1350 · 4:5 Feed'},
   '11': {W:1080,H:1080,label:'1080 × 1080 · 1:1 Square'}
 };
-// Safe zone margins (1080px units)
 const SZ={top:250,bot:250,side:150};
-// Additional inset for border INSIDE safe zone
 const BI_TOP=0, BI_SIDE=0;
 
-// ── HELPERS ──────────────────────────────────────────────
 function vgrad(c,W,H,stops){
   const g=c.createLinearGradient(0,0,0,H);
   stops.forEach(([p,col])=>g.addColorStop(p,col));
@@ -140,7 +136,6 @@ function rrect(c,x,y,w,h,r){
   c.closePath();
 }
 
-// ── BACKGROUNDS ──────────────────────────────────────────
 const BG={
   lore:[
     {name:'Teal / Gold Mesh',gold:'#e8d27a',
@@ -175,16 +170,12 @@ const BG={
      }
     }
   ],
-
   transcendence:[
     {name:'Warm Cream → Amber',gold:'#8b3a10',
      draw(c,W,H,t){
-      // Correct: light cream/stone top, warm amber bottom
       vgrad(c,W,H,[[0,'#f2ece2'],[.3,'#ede4d0'],[.58,'#e8cc90'],[.8,'#d49448'],[1,'#c07828']]);
-      // Subtle warm glow where phoenix wings catch light
       radBlob(c,W,H,W*.65,H*.32,W*.5,'rgba(240,160,60,1)',.22);
       radBlob(c,W,H,W*.5,H*.82,W*.52,'rgba(195,100,28,1)',.3);
-      // grain removed for performance
      }
     },
     {name:'Burnt Orange Dusk',gold:'#ffc870',
@@ -202,7 +193,6 @@ const BG={
      }
     }
   ],
-
   solaris:[
     {name:'Lime → Purple Sunset',gold:'#e8d27a',
      draw(c,W,H,t){
@@ -235,13 +225,10 @@ const BG={
      }
     }
   ],
-
   altarego:[
     {name:'Indigo Cosmic',gold:'#e8d27a',
      draw(c,W,H,t){
-      // Outer warm yellow-green sides
       hgrad(c,W,H,[[0,'#c8d828'],[.25,'#e09050'],[.5,'#c05030'],[.75,'#e09050'],[1,'#c8d828']]);
-      // Deep indigo center cone from top
       c.save();
       const cg=c.createLinearGradient(W*.5,0,W*.5,H*.68);
       cg.addColorStop(0,'#18083c');
@@ -250,14 +237,12 @@ const BG={
       c.fillStyle=cg;
       c.beginPath();c.moveTo(W*.5,0);c.lineTo(W*1.1,H*.7);c.lineTo(-W*.1,H*.7);c.closePath();
       c.fill();c.restore();
-      // Lower solid indigo
       c.save();
       const lg=c.createLinearGradient(0,H*.5,0,H);
       lg.addColorStop(0,'rgba(30,12,70,0)');
       lg.addColorStop(.25,'rgba(30,12,70,.9)');
       lg.addColorStop(1,'#10063a');
       c.fillStyle=lg;c.fillRect(0,H*.48,W,H*.52);c.restore();
-      // Radiating beams from center vanishing point
       const bcx=W*.5, bcy=H*.35;
       [[-68,'rgba(232,80,60,.5)'],[-46,'rgba(200,230,50,.42)'],[-22,'rgba(232,160,40,.38)'],
        [0,'rgba(200,230,50,.35)'],  [22,'rgba(232,80,60,.42)'], [46,'rgba(200,230,50,.4)'],
@@ -273,7 +258,6 @@ const BG={
         c.lineTo(bcx+Math.sin(rad2)*W*1.5,bcy-Math.cos(rad2)*H);
         c.closePath();c.fill();
       });
-      // Constellation dots
       c.fillStyle='rgba(255,255,200,.75)';
       [[.14,.09],[.82,.16],[.28,.28],[.7,.2],[.43,.06],[.62,.32],[.1,.38],[.87,.3],[.5,.04],[.22,.14],[.76,.08]].forEach(([sx,sy])=>{
         c.beginPath();c.arc(W*sx,H*sy,2.5,0,Math.PI*2);c.fill();
@@ -308,21 +292,13 @@ const BG={
   ]
 };
 
-// ── BORDER ───────────────────────────────────────────────
 function drawBorder(c,W,H,gold){
-  const bx=24;
-  const by=24;
-  const bw=W-bx*2;
-  const bh=H-by*2;
-  const rad=28;
-  // Outer rule
+  const bx=24, by=24, bw=W-bx*2, bh=H-by*2, rad=28;
   c.strokeStyle=gold; c.lineWidth=6;
   rrect(c,bx,by,bw,bh,rad); c.stroke();
-  // Inner hairline
   const ins=16;
   c.save(); c.globalAlpha=.28; c.strokeStyle=gold; c.lineWidth=2;
   rrect(c,bx+ins,by+ins,bw-ins*2,bh-ins*2,rad-4); c.stroke(); c.restore();
-  // Corner stars
   [[bx,by],[bx+bw,by],[bx,by+bh],[bx+bw,by+bh]].forEach(([x,y],i)=>{
     const sx=i%2===0?1:-1, sy=i<2?1:-1;
     c.save(); c.translate(x,y);
@@ -338,13 +314,11 @@ function drawBorder(c,W,H,gold){
     c.beginPath(); c.moveTo(0,sy*24); c.lineTo(0,sy*60); c.stroke();
     c.restore();
   });
-  // Side midpoint dots
   c.fillStyle=gold;
   c.beginPath(); c.arc(bx,by+bh/2,6,0,Math.PI*2); c.fill();
   c.beginPath(); c.arc(bx+bw,by+bh/2,6,0,Math.PI*2); c.fill();
 }
 
-// ── SERIES LABEL ─────────────────────────────────────────
 function drawSeries(c,W,H,gold){
   const txt=document.getElementById('fS').value.trim();
   if(!txt)return;
@@ -352,26 +326,19 @@ function drawSeries(c,W,H,gold){
   const borderX=SZ.side+BI_SIDE;
   const maxW=W-borderX*2-60;
   c.save();
-  c.font=`400 ${fs}px 'Times New Roman',serif`;
-  // Constrain pill width to inside border
+  c.font='400 '+fs+'px "Times New Roman",serif';
   const measW=c.measureText(txt).width+80;
   const pillW=Math.min(measW,maxW);
   const by=SZ.top+BI_TOP+26;
   const bx=(W-pillW)/2;
-  // Black scrim
   c.globalAlpha=.72; c.fillStyle='#000000';
   rrect(c,bx,by,pillW,fs+22,22); c.fill();
-  // Gold text, clipped
   c.globalAlpha=1; c.fillStyle='#e8d27a'; c.textAlign='center';
   c.beginPath(); rrect(c,bx,by,pillW,fs+22,22); c.clip();
   c.fillText(txt,W/2,by+fs+6);
   c.restore();
 }
 
-// ── PP LOGO ───────────────────────────────────────────────
-
-
-// ── CLIENT LOGO ───────────────────────────────────────────
 function drawClientLogo(c,W,H){
   const logoTop=SZ.top+320;
   const sc=S.sponsorScale;
@@ -383,14 +350,15 @@ function drawClientLogo(c,W,H){
     const px=(W-pw)/2;
     c.save(); c.globalAlpha=.22; c.strokeStyle='rgba(232,210,122,.9)'; c.lineWidth=4; c.setLineDash([14,8]);
     rrect(c,px,logoTop,pw,ph,14); c.stroke(); c.setLineDash([]); c.restore();
-    c.font=`600 44px 'Helvetica Neue',sans-serif`;
+    c.font='600 44px "Helvetica Neue",sans-serif';
     c.fillStyle='rgba(232,210,122,.3)'; c.textAlign='center';
     c.fillText('CLIENT LOGO',W/2,logoTop+ph*.55+16);
-    // PP logo below placeholder
+    // PP logo below placeholder — FIX: ppX was undefined, now using (W-ppW)/2
     if(S.ppImg){
       const ppMaxW=pw*0.75;
       const ppSc=Math.min(ppMaxW/S.ppImg.width,(ph*0.75)/S.ppImg.height);
       const ppW=S.ppImg.width*ppSc, ppH=S.ppImg.height*ppSc;
+      const ppX=(W-ppW)/2;
       const ppY=logoTop+ph+120;
       if(ppY+ppH < H-SZ.bot){
         c.save(); c.globalAlpha=.35; c.strokeStyle='#e8d27a'; c.lineWidth=2;
@@ -409,12 +377,11 @@ function drawClientLogo(c,W,H){
   const finalW=Math.min(baseW,maxW);
   const finalH=(S.sponsorImg.height/S.sponsorImg.width)*finalW;
   const lx=(W-finalW)/2;
-  // Dark backing
   c.save(); c.globalAlpha=.5; c.fillStyle='#04040c';
   rrect(c,lx-36,logoTop-18,finalW+72,finalH+36,20); c.fill(); c.restore();
   c.drawImage(S.sponsorImg,lx,logoTop,finalW,finalH);
 
-  // PP logo below client logo — 75% of client logo width, 60px gap
+  // PP logo below client logo — 75% of client width, 120px gap, gold separator
   if(S.ppImg){
     const ppMaxW=finalW*0.75;
     const ppMaxH=finalH*0.75;
@@ -433,7 +400,6 @@ function drawClientLogo(c,W,H){
   }
 }
 
-// ── CHARACTER ─────────────────────────────────────────────
 function drawChar(c,W,H,ev){
   if(!S.charImg)return;
   const zones={lore:{t:.3,b:.74},transcendence:{t:.12,b:.78},solaris:{t:.10,b:.62},altarego:{t:.20,b:.74}};
@@ -445,7 +411,6 @@ function drawChar(c,W,H,ev){
   c.drawImage(S.charImg,(W-cw)/2,zTop+(zH-ch)/2,cw,ch);
 }
 
-// ── HEADLINE ──────────────────────────────────────────────
 function wrapText(c,txt,maxW){
   const words=txt.toUpperCase().split(' ');
   const lines=[]; let cur='';
@@ -462,64 +427,37 @@ function drawHeadline(c,W,H,gold){
   const txtA=document.getElementById('fH').value.trim();
   const txtB=document.getElementById('fH2').value.trim();
   if(!txtA && !txtB)return;
-
   const scrX=SZ.side+20;
   const scrW=W-scrX*2;
   const maxW=scrW-60;
-
-  const fsA=72; // Headline A
-  const fsB=72; // Headline B — same size
-  const lhA=fsA+20;
-  const lhB=fsB+20;
-
-  // Measure headline A lines
-  c.font=`bold ${fsA}px Georgia,'Times New Roman',serif`;
+  const fsA=72, fsB=72;
+  const lhA=fsA+20, lhB=fsB+20;
+  c.font='bold '+fsA+'px Georgia,"Times New Roman",serif';
   const linesA=txtA?wrapText(c,txtA,maxW):[];
-
-  // Measure headline B lines
-  c.font=`bold ${fsB}px Georgia,'Times New Roman',serif`;
+  c.font='bold '+fsB+'px Georgia,"Times New Roman",serif';
   const linesB=txtB?wrapText(c,txtB,maxW):[];
-
-  const gapAB=24; // gap between A and B blocks
+  const gapAB=24;
   const totalH=(linesA.length*lhA)+(linesB.length>0?gapAB+linesB.length*lhB:0)+40;
-
-  // Pin above bottom safe zone
   const blockY=H-SZ.bot-totalH-30;
-
-  // Single black scrim behind both
   c.save();
-  c.globalAlpha=.80;
-  c.fillStyle='#000000';
-  rrect(c,scrX,blockY-20,scrW,totalH+28,14);
-  c.fill();
+  c.globalAlpha=.80; c.fillStyle='#000000';
+  rrect(c,scrX,blockY-20,scrW,totalH+28,14); c.fill();
   c.restore();
-
-  // Clip to scrim
   c.save();
-  c.beginPath();
-  rrect(c,scrX,blockY-20,scrW,totalH+28,14);
-  c.clip();
-
+  c.beginPath(); rrect(c,scrX,blockY-20,scrW,totalH+28,14); c.clip();
   let curY=blockY+lhA-20;
-
-  // Headline A — white, large, bold
-  c.font=`bold ${fsA}px Georgia,'Times New Roman',serif`;
-  c.fillStyle='#ffffff';
-  c.textAlign='center';
+  c.font='bold '+fsA+'px Georgia,"Times New Roman",serif';
+  c.fillStyle='#ffffff'; c.textAlign='center';
   linesA.forEach(ln=>{ c.fillText(ln,W/2,curY); curY+=lhA; });
-
-  // Headline B — gold, smaller, below A
   if(linesB.length>0){
-    curY+=gapAB-lhA+lhB; // adjust for size difference
-    c.font=`bold ${fsB}px Georgia,'Times New Roman',serif`;
+    curY+=gapAB-lhA+lhB;
+    c.font='bold '+fsB+'px Georgia,"Times New Roman",serif';
     c.fillStyle='#e8d27a';
     linesB.forEach(ln=>{ c.fillText(ln,W/2,curY); curY+=lhB; });
   }
-
   c.restore();
 }
 
-// ── SAFE OVERLAY ──────────────────────────────────────────
 function drawOverlay(){
   const sp=SPECS[S.fmt]; const ps=getPS();
   octx.clearRect(0,0,ov.width,ov.height);
@@ -527,12 +465,10 @@ function drawOverlay(){
   const t=SZ.top*ps, b=SZ.bot*ps, si=SZ.side*ps;
   const biT=BI_TOP*ps, biS=BI_SIDE*ps;
   octx.setLineDash([6,4]);
-  // Safe zone — red
   octx.strokeStyle='rgba(255,60,60,.65)'; octx.lineWidth=1;
   [[0,t,ov.width,t],[0,ov.height-b,ov.width,ov.height-b],[si,0,si,ov.height],[ov.width-si,0,ov.width-si,ov.height]].forEach(([x1,y1,x2,y2])=>{
     octx.beginPath();octx.moveTo(x1,y1);octx.lineTo(x2,y2);octx.stroke();
   });
-  // Border zone — gold
   octx.strokeStyle='rgba(232,210,122,.5)';
   [[0,t+biT,ov.width,t+biT],[0,ov.height-b-biT,ov.width,ov.height-b-biT],[si+biS,0,si+biS,ov.height],[ov.width-si-biS,0,ov.width-si-biS,ov.height]].forEach(([x1,y1,x2,y2])=>{
     octx.beginPath();octx.moveTo(x1,y1);octx.lineTo(x2,y2);octx.stroke();
@@ -543,7 +479,6 @@ function drawOverlay(){
   octx.fillStyle='rgba(232,210,122,.7)'; octx.fillText('BORDER',si+biS+3,t+biT-3);
 }
 
-// ── STATE ─────────────────────────────────────────────────
 const S={ev:'lore',fmt:'916',vi:0,ppImg:null,sponsorImg:null,charImg:null,sponsorScale:1,showSafe:false,tick:0,raf:null};
 const canvas=document.getElementById('c');
 const ctx=canvas.getContext('2d');
@@ -578,7 +513,6 @@ function drawFrame(){
 function loop(){S.tick++;drawFrame();S.raf=requestAnimationFrame(loop);}
 function updateVname(){document.getElementById('vname').textContent=BG[S.ev][S.vi].name;}
 
-// ── WIRING ────────────────────────────────────────────────
 document.getElementById('evT').addEventListener('click',e=>{
   if(!e.target.dataset.ev)return;
   document.querySelectorAll('#evT .tab').forEach(t=>t.classList.remove('on'));
@@ -628,7 +562,7 @@ document.getElementById('bDl').addEventListener('click',()=>{
   S.showSafe=false; drawFrame();
   const sp=SPECS[S.fmt]; const bg=BG[S.ev][S.vi];
   const a=document.createElement('a');
-  a.download=`pp2026-${S.ev}-var${String.fromCharCode(65+S.vi)}-${sp.W}x${sp.H}.png`;
+  a.download='pp2026-'+S.ev+'-var'+String.fromCharCode(65+S.vi)+'-'+sp.W+'x'+sp.H+'.png';
   a.href=canvas.toDataURL('image/png'); a.click();
   S.raf=requestAnimationFrame(loop);
 });
