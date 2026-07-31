@@ -369,21 +369,16 @@ function drawSeries(c,W,H,gold){
 }
 
 // ── PP LOGO ───────────────────────────────────────────────
-function drawPPLogo(c,W,H){
-  if(!S.ppImg)return;
-  const maxW=W-(SZ.side+BI_SIDE)*2-60;
-  const maxH=190;
-  const sc=Math.min(maxW/S.ppImg.width,maxH/S.ppImg.height);
-  const pw=S.ppImg.width*sc, ph=S.ppImg.height*sc;
-  c.drawImage(S.ppImg,(W-pw)/2,SZ.top+BI_TOP+100,pw,ph);
-}
+
 
 // ── CLIENT LOGO ───────────────────────────────────────────
 function drawClientLogo(c,W,H){
-  const logoTop=SZ.top+BI_TOP+320;
+  const logoTop=SZ.top+320;
   const sc=S.sponsorScale;
-  const maxW=(W-(SZ.side+BI_SIDE)*2-40);
+  const maxW=W-SZ.side*2-40;
+
   if(!S.sponsorImg){
+    // Placeholder box
     const pw=maxW*.55*sc, ph=160*sc;
     const px=(W-pw)/2;
     c.save(); c.globalAlpha=.22; c.strokeStyle='rgba(232,210,122,.9)'; c.lineWidth=4; c.setLineDash([14,8]);
@@ -393,34 +388,48 @@ function drawClientLogo(c,W,H){
     c.fillText('CLIENT LOGO',W/2,logoTop+ph*.55+16);
     // PP logo below placeholder
     if(S.ppImg){
-      const ppMaxW=pw*0.55, ppMaxH=120;
-      const ppSc=Math.min(ppMaxW/S.ppImg.width,ppMaxH/S.ppImg.height);
+      const ppMaxW=pw*0.75;
+      const ppSc=Math.min(ppMaxW/S.ppImg.width,(ph*0.75)/S.ppImg.height);
       const ppW=S.ppImg.width*ppSc, ppH=S.ppImg.height*ppSc;
-      c.save(); c.globalAlpha=.75;
-      c.drawImage(S.ppImg,(W-ppW)/2,logoTop+ph+80,ppW,ppH);
-      c.restore();
+      const ppY=logoTop+ph+120;
+      if(ppY+ppH < H-SZ.bot){
+        c.save(); c.globalAlpha=.35; c.strokeStyle='#e8d27a'; c.lineWidth=2;
+        c.beginPath(); c.moveTo(W*.3,logoTop+ph+60); c.lineTo(W*.7,logoTop+ph+60); c.stroke(); c.restore();
+        c.save(); c.globalAlpha=.82;
+        c.drawImage(S.ppImg,ppX,ppY,ppW,ppH);
+        c.restore();
+      }
     }
     return;
   }
+
+  // Render client logo
   const baseH=260*sc;
   const baseW=(S.sponsorImg.width/S.sponsorImg.height)*baseH;
   const finalW=Math.min(baseW,maxW);
   const finalH=(S.sponsorImg.height/S.sponsorImg.width)*finalW;
   const lx=(W-finalW)/2;
+  // Dark backing
   c.save(); c.globalAlpha=.5; c.fillStyle='#04040c';
   rrect(c,lx-36,logoTop-18,finalW+72,finalH+36,20); c.fill(); c.restore();
   c.drawImage(S.sponsorImg,lx,logoTop,finalW,finalH);
 
-  // PP logo beneath client logo, 65% size
+  // PP logo below client logo — 75% of client logo width, 60px gap
   if(S.ppImg){
-    const ppMaxW=(finalW)*0.65;
-    const ppMaxH=finalH*0.65;
+    const ppMaxW=finalW*0.75;
+    const ppMaxH=finalH*0.75;
     const ppSc=Math.min(ppMaxW/S.ppImg.width,ppMaxH/S.ppImg.height);
     const ppW=S.ppImg.width*ppSc, ppH=S.ppImg.height*ppSc;
-    const ppX=(W-ppW)/2, ppY=logoTop+finalH+80;
-    c.save(); c.globalAlpha=.75;
-    c.drawImage(S.ppImg,ppX,ppY,ppW,ppH);
-    c.restore();
+    const ppY=logoTop+finalH+120;
+    if(ppY+ppH < H-SZ.bot){
+      // Thin gold separator
+      c.save(); c.globalAlpha=.35; c.strokeStyle='#e8d27a'; c.lineWidth=2;
+      c.beginPath(); c.moveTo(W*.3,logoTop+finalH+60); c.lineTo(W*.7,logoTop+finalH+60); c.stroke();
+      // PP logo
+      c.globalAlpha=.82;
+      c.drawImage(S.ppImg,(W-ppW)/2,ppY,ppW,ppH);
+      c.restore();
+    }
   }
 }
 
