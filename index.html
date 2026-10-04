@@ -62,6 +62,24 @@ input:focus,textarea:focus,select:focus{outline:2px solid var(--pink);outline-of
 .slide.locked{background:#f6f0f3}
 .slide .hd{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .slide .hd b{font-size:14px}
+.slide{border-left:6px solid var(--pink)}
+.slide.photo{border-left-color:#c9a227}
+.slide.locked{border-left-color:#bdb6cf}
+.typeseg{display:inline-flex;border:1.5px solid var(--border);border-radius:11px;overflow:hidden;margin:10px 0 4px}
+.typeseg button{font:inherit;font-weight:700;font-size:14px;padding:9px 16px;border:0;background:#fff;color:var(--gray);cursor:pointer;display:flex;align-items:center;gap:7px}
+.typeseg button+button{border-left:1.5px solid var(--border)}
+.typeseg button.on{background:var(--pink);color:#fff}
+.slide.photo .typeseg button.on{background:#c9a227;color:#1d1a1c}
+.addgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:4px}
+@media (max-width:520px){.addgrid{grid-template-columns:1fr}}
+.addcard{font:inherit;text-align:left;border:2px dashed var(--pink);background:#fff;border-radius:14px;padding:14px 16px;cursor:pointer;color:var(--ink)}
+.addcard.photo{border-color:#c9a227}
+.addcard b{display:block;font-size:16px;margin-bottom:2px}
+.addcard span{font-size:12.5px;color:var(--gray)}
+.addcard:hover:not(:disabled){background:#f3f0fb}
+.addcard:disabled{opacity:.45;cursor:not-allowed}
+.wc{font-size:12px;color:var(--muted);margin-top:4px}
+.wc.max{color:#b3261e;font-weight:600}
 .slide .hd .sp{flex:1}
 .slide .meta{font-size:12px;color:var(--muted)}
 .ph{width:64px;height:100px;border-radius:7px;object-fit:cover;border:1px solid var(--border);background:#eee}
@@ -127,7 +145,7 @@ details summary{cursor:pointer;font-weight:600;font-size:13px;color:var(--pink)}
       </ol></div>
       <div class="box"><h3>Before you start</h3><ul>
         <li><b>One message per slide.</b> Viewers read each slide in 2–3 seconds.</li>
-        <li><b>12 words or fewer</b> per slide. If it runs longer, split it into two slides.</li>
+        <li><b>Up to 12 words</b> per text slide, 6 for a photo caption. The page stops you at the limit; add another slide for more.</li>
         <li>Put *asterisks* around <b>one or two words</b> to color them. Don't color whole sentences.</li>
         <li><b>Event photos</b> make it feel like Pines Party. One or two is plenty.</li>
         <li>Keep it short: <b>15–30 seconds</b> total works best for Stories.</li>
@@ -177,9 +195,9 @@ details summary{cursor:pointer;font-weight:600;font-size:13px;color:var(--pink)}
     <b>Text slides:</b> Centered, Art + text (artwork on top, text below) or Card. Wrap a word in *asterisks* to color it; press Enter for a new line.<br>
     <b>Photo slides:</b> Full photo with a short caption you can move, Photo + text (photo on top, your message below) or Framed.</p>
     <div id="slides"></div>
-    <div class="dl">
-      <button class="btn btn-outline" id="addText">+ Text slide</button>
-      <button class="btn btn-outline" id="addPhoto">+ Photo slide</button>
+    <div class="addgrid">
+      <button class="addcard" id="addText"><b>+ Add a text slide</b><span>A short message, up to 12 words.</span></button>
+      <button class="addcard photo" id="addPhoto"><b>+ Add a photo slide</b><span>Your event photo with a short caption or message.</span></button>
     </div>
     <label for="fPace" style="margin-top:14px">Pace</label>
     <div class="tabs" id="paceTabs"></div>
@@ -231,7 +249,7 @@ details summary{cursor:pointer;font-weight:600;font-size:13px;color:var(--pink)}
   </div>
   <div class="tl" id="tl"></div>
   <div class="stat"><span id="statSlide"></span><span id="statDur"></span></div>
-  <label class="tog"><input type="checkbox" id="fSafe"> Show safe zone</label>
+  <label class="tog"><input type="checkbox" id="fSafe" checked> Show safe zone</label>
 </aside>
 </div>
 
@@ -485,7 +503,7 @@ BG.weekend=[{name:'Weekend · Starfield',gold:'#f7f0a0',panel:'#33205f',frame:'#
 const S={
   sponsor:'',reg:null,story:1,logo:null,logoMode:'original',
   ev:'altarego',vi:0,mode:'template',frame:true,accent:PP_GOLD,bg1:'#1F1F23',bg2:'#000000',
-  pace:1,slides:[],stk:{type:'none',slide:1},showSafe:false,
+  pace:1,slides:[],stk:{type:'none',slide:1},showSafe:true,
   ppMode:'auto',t:0,playing:true
 };
 let uid=0;
@@ -637,6 +655,16 @@ function drawLayout(c,L,cx,cy,t0,t,ink,accent,align){
 }
 
 /* ===== Slide timing ===== */
+const CAP={text:12,full:6,framed:6,split:12};
+function capFor(sl){return sl.type==='text'?CAP.text:CAP[sl.layout||'full'];}
+// keep only the first max words (asterisk highlights stay balanced)
+function capWords(str,max){
+  const parts=String(str||'').split(/(\s+)/);let n=0,out='';
+  for(const p of parts){if(/[^\s*]/.test(p)){if(n>=max)break;n++;}out+=p;}
+  if(((out.match(/\*/g)||[]).length)%2)out+='*';
+  return out;
+}
+function wcHTML(sl,txt){const n=wordCount(txt),m=capFor(sl);return `<div class="wc ${n>=m?'max':''}">${n} / ${m} words${n>=m?' · limit reached. Add another slide for more.':''}</div>`;}
 function wordCount(s){return (String(s||'').replace(/\*/g,'').match(/\S+/g)||[]).length;}
 function autoDur(sl){
   if(sl.type==='photo')return sl.layout==='split'?clamp(2.4+0.26*wordCount(sl.caption),3.2,6):3.2;
@@ -913,19 +941,20 @@ function renderSlides(){
   lock.innerHTML='<div class="hd"><b>Intro card</b><span class="sp"></span><span class="meta">Fixed · co-branded: your logo above Pines Party</span></div>';
   box.appendChild(lock);
   S.slides.forEach((sl,i)=>{
-    const d=document.createElement('div');d.className='slide';
+    const d=document.createElement('div');d.className='slide'+(sl.type==='photo'?' photo':'');
     const dur=(sl.dur||autoDur(sl));
-    d.innerHTML=`<div class="hd"><b>Slide ${i+1}</b><span class="meta">${sl.type==='photo'?'Photo':'Text'}</span><span class="sp"></span>
+    d.innerHTML=`<div class="hd"><b style="font-size:16px">Slide ${i+1}</b><span class="sp"></span>
       <span class="meta">${dur.toFixed(1)}s</span>
       <button class="mini" data-a="slower" title="Hold longer">+</button><button class="mini" data-a="faster" title="Shorter">−</button>
       <button class="mini" data-a="up" ${i===0?'disabled':''}>↑</button><button class="mini" data-a="down" ${i===S.slides.length-1?'disabled':''}>↓</button>
       <button class="mini" data-a="del">Remove</button></div>
+      <div class="typeseg"><button data-ty="text" class="${sl.type==='text'?'on':''}">Aa&nbsp; Text slide</button><button data-ty="photo" class="${sl.type==='photo'?'on':''}">&#9635;&nbsp; Photo slide</button></div>
       <div class="capbtns" style="margin:8px 0 2px"><span class="hint" style="margin:0 4px 0 0">Layout:</span>${(sl.type==='text'?[['center','Centered'],['split','Art + text'],['panel','Card']]:[['full','Full photo'],['split','Photo + text'],['framed','Framed']]).map(([v,l])=>`<button class="mini ${(sl.layout||(sl.type==='text'?'center':'full'))===v?'on':''}" data-ly="${v}">${l}</button>`).join('')}</div>`+
       (sl.type==='text'
-        ?`<textarea data-f="text" placeholder="e.g. Thank you for an unforgettable *Pines Party*.">${esc(sl.text)}</textarea><div class="hint">${wordCount(sl.text)} words${wordCount(sl.text)>14?' · consider splitting this into two slides':''}</div>`
+        ?`<textarea data-f="text" placeholder="e.g. Thank you for an unforgettable *Pines Party*.">${esc(sl.text)}</textarea>${wcHTML(sl,sl.text)}`
         :`<div class="up" style="margin-top:8px">${sl.img?`<img class="ph" src="${sl.img.src}">`:'<div class="ph" style="display:grid;place-items:center;font-size:11px;color:#999">No photo</div>'}
             <div style="flex:1;min-width:180px"><input type="file" accept="image/*" hidden data-f="img"><button class="mini" data-a="pick">${sl.img?'Change photo':'Upload photo'}</button>
-            <label>${sl.layout==='split'?'Text under the photo':'Caption (optional, short)'}</label><input type="text" data-f="caption" value="${esc(sl.caption)}" placeholder="${sl.layout==='split'?'e.g. Thank you for an unforgettable *Pines Party*.':'e.g. The result.'}">
+            <label>${sl.layout==='split'?'Text under the photo':'Caption (optional, short)'}</label><input type="text" data-f="caption" value="${esc(sl.caption)}" placeholder="${sl.layout==='split'?'e.g. Thank you for an unforgettable *Pines Party*.':'e.g. The result.'}">${wcHTML(sl,sl.caption)}
             <div style="${sl.layout&&sl.layout!=='full'?'display:none':''}"><label>Caption position</label>
             <div class="capbtns"><button class="mini ${sl.capY===0?'on':''}" data-cp="0">Top</button><button class="mini ${sl.capY===50?'on':''}" data-cp="50">Middle</button><button class="mini ${sl.capY===100?'on':''}" data-cp="100">Bottom</button><button class="mini ${sl.capY==null?'on':''}" data-cp="auto">Auto</button></div>
             <input type="range" min="0" max="100" value="${sl.capY==null?100:sl.capY}" data-f="capY" style="width:100%;accent-color:var(--pink)" title="Fine-tune: drag up or down"></div>
@@ -940,9 +969,14 @@ function renderSlides(){
       if(a==='pick'){d.querySelector('input[type=file]').click();return;}
       renderSlides();renderSticker();invalidate();
     });
-    const ta=d.querySelector('[data-f=text]');if(ta)ta.oninput=()=>{sl.text=ta.value;const h=ta.nextElementSibling;const n=wordCount(sl.text);h.textContent=n+' words'+(n>14?' · consider splitting this into two slides':'');invalidate();d.querySelector('.hd .meta:nth-of-type(3)').textContent=(sl.dur||autoDur(sl)).toFixed(1)+'s';};
-    const cp=d.querySelector('[data-f=caption]');if(cp)cp.oninput=()=>{sl.caption=cp.value;invalidate();};
-    d.querySelectorAll('[data-ly]').forEach(b=>b.onclick=()=>{sl.layout=b.dataset.ly;renderSlides();invalidate();});
+    const capInput=(el,key)=>{const m=capFor(sl);if(wordCount(el.value)>m){const pos=el.selectionStart;el.value=capWords(el.value,m);try{el.setSelectionRange(Math.min(pos,el.value.length),Math.min(pos,el.value.length));}catch(e){}}
+      sl[key]=el.value;const w=el.nextElementSibling;w.outerHTML=wcHTML(sl,el.value);invalidate();const dm=d.querySelector('.hd .meta');if(dm)dm.textContent=(sl.dur||autoDur(sl)).toFixed(1)+'s';};
+    const ta=d.querySelector('[data-f=text]');if(ta)ta.oninput=()=>capInput(ta,'text');
+    const cp=d.querySelector('[data-f=caption]');if(cp)cp.oninput=()=>capInput(cp,'caption');
+    d.querySelectorAll('[data-ty]').forEach(b=>b.onclick=()=>{const t=b.dataset.ty;if(t===sl.type)return;
+      if(t==='photo'){sl.caption=sl.caption||sl.text;sl.layout='split';}else{sl.text=sl.text||sl.caption;sl.layout='center';}
+      sl.type=t;sl.dur=null;sl.text=capWords(sl.text,CAP.text);sl.caption=capWords(sl.caption,capFor(sl));renderSlides();renderSticker();invalidate();});
+    d.querySelectorAll('[data-ly]').forEach(b=>b.onclick=()=>{sl.layout=b.dataset.ly;if(sl.type==='photo')sl.caption=capWords(sl.caption,capFor(sl));renderSlides();invalidate();});
     d.querySelectorAll('[data-cp]').forEach(b=>b.onclick=()=>{sl.capY=b.dataset.cp==='auto'?null:+b.dataset.cp;renderSlides();saveDraft();});
     const cy=d.querySelector('[data-f=capY]');if(cy)cy.oninput=()=>{sl.capY=+cy.value;d.querySelectorAll('[data-cp]').forEach(b=>b.classList.toggle('on',String(sl.capY)===b.dataset.cp));saveDraft();};
     const fc=d.querySelector('[data-f=focus]');if(fc)fc.oninput=()=>{sl.focus=+fc.value;};
@@ -1136,7 +1170,7 @@ function loadDraft(){
   try{const d=JSON.parse(localStorage.getItem('pp26story3:'+(new URLSearchParams(location.search).get('s')||'_'))||'null');if(!d)return false;
     Object.assign(S,{ev:d.ev,vi:d.vi,mode:d.mode,accent:d.accent,bg1:d.bg1,bg2:d.bg2,pace:d.pace,story:d.story,logoMode:d.logoMode,ppMode:d.ppMode||'auto',frame:d.frame!==false,stk:d.stk||S.stk});
     if(!BG[S.ev])S.ev='night';if(!BG[S.ev][S.vi])S.vi=0;
-    S.slides=(d.slides||[]).map(s=>Object.assign(newSlide(s.type),s));
+    S.slides=(d.slides||[]).map(s=>Object.assign(newSlide(s.type),s)).map(s=>{s.text=capWords(s.text,CAP.text);s.caption=capWords(s.caption,capFor(s));return s;});
     $('fTags').value=d.tags||'';$('fHash').value=d.hash||'';$('fNotes').value=d.notes||'';return true;}catch(e){return false;}
 }
 
