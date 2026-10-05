@@ -93,6 +93,8 @@ input:focus,textarea:focus,select:focus{outline:2px solid var(--pink);outline-of
 .tl div{flex:1;height:6px;border-radius:3px;background:#e7d8df;cursor:pointer}
 .tl div.on{background:var(--pink)}
 .stat{display:flex;justify-content:space-between;font-size:12px;color:var(--gray);margin-top:8px}
+.hint.ok{color:var(--ok)}.hint.err{color:#b3261e}
+.draftbox{margin-top:14px;padding:12px;border:1px solid var(--border);border-radius:12px;background:#fff}
 .tog{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--gray);margin-top:10px;cursor:pointer}
 .progress{height:8px;background:#eedde6;border-radius:4px;overflow:hidden;margin-top:12px;display:none}
 .progress i{display:block;height:100%;width:0;background:var(--pink);transition:width .1s}
@@ -150,6 +152,7 @@ details summary{cursor:pointer;font-weight:600;font-size:13px;color:var(--pink)}
         <li><b>Event photos</b> make it feel like Pines Party. One or two is plenty.</li>
         <li>Keep it short: <b>15–30 seconds</b> total works best for Stories.</li>
         <li>Have ready: your <b>logo (transparent PNG)</b>, any <b>photos</b>, and your <b>link</b>.</li>
+        <li><b>Save draft</b> (under the preview) keeps everything, logo and photos too, on this device so you can finish later.</li>
       </ul></div>
     </div>
   </section>
@@ -173,13 +176,16 @@ details summary{cursor:pointer;font-weight:600;font-size:13px;color:var(--pink)}
 
   <section class="step">
     <h2><span class="n">2</span>Look &amp; colors</h2>
-    <p class="sub">Each event has templates. Ones marked ART use the original event artwork. Prefer something quieter? The SEMI-SOLID tab has soft backgrounds in the event colors, or choose "My brand colors". Then add your accent color.</p>
+    <p class="sub">Each event has templates. Ones marked ART use the original event artwork. Prefer something quieter? The SEMI-SOLID tab has soft backgrounds in the event colors, or choose "My brand color background". Then add your accent color.</p>
     <div class="tabs" id="evTabs"></div>
     <div class="swatches" id="swatches"></div>
     <div class="swname" id="swName"></div>
     <label>Color mode</label>
     <div class="tabs" id="modeTabs"></div>
     <div class="colors" id="colorBox"></div>
+    <label>Text color</label>
+    <div class="up"><span class="tabs" id="inkTabs"></span><input type="color" id="inkCustom" value="#ffffff" style="display:none;width:40px;height:32px;border:1px solid var(--border);border-radius:8px;padding:2px;background:#fff"></div>
+    <div class="hint">Auto picks light or dark text for each background.</div>
     <div class="warn" id="contrastWarn"></div>
     <label>Poster frame</label>
     <div class="tabs" id="frameTabs"></div>
@@ -250,6 +256,10 @@ details summary{cursor:pointer;font-weight:600;font-size:13px;color:var(--pink)}
   <div class="tl" id="tl"></div>
   <div class="stat"><span id="statSlide"></span><span id="statDur"></span></div>
   <label class="tog"><input type="checkbox" id="fSafe" checked> Show safe zone</label>
+  <div class="draftbox">
+    <div class="dl"><button class="btn btn-pink" id="btnSave">Save draft</button><button class="btn btn-outline" id="btnReset">Start over</button></div>
+    <div class="hint" id="draftStatus">Save your work, logo and photos included, and pick up where you left off on this device.</div>
+  </div>
 </aside>
 </div>
 
@@ -444,8 +454,7 @@ const W=1080,H=1920,FPS=30,XF=0.5;
 const SAFE={x:65,y:250,w:950,h:1330};
 const KIT_PAGE='https://marioguardado1030.github.io/pines-eblast-kit/pp-eblast-kit.html';
 const PP_GOLD='#f7f0a0';
-const EVENTS=[['divine','DIVINE'],['lore','LORE'],['altarego','ALTAR EGO'],['transcendence','TRANSCENDENCE'],['solaris','SOLARIS'],['weekend','WEEKEND'],['solid','SEMI-SOLID'],['night','PP NIGHT']];
-BG.night=[{name:'Night (charcoal → black)',gold:PP_GOLD,panel:'#141216',draw(c,W,H){vgrad(c,W,H,[[0,'#1F1F23'],[1,'#000000']]);}}];
+const EVENTS=[['divine','DIVINE'],['lore','LORE'],['altarego','ALTAR EGO'],['transcendence','TRANSCENDENCE'],['solaris','SOLARIS'],['weekend','WEEKEND'],['solid','SEMI-SOLID']];
 /* Event artwork (from the PP2026 posters, cropped clear of poster text) */
 const ART={};['divine','lore','altarego','solaris','ae_art','ae_dusk','ae_sky','ae_skysym','tr_stone'].forEach(k=>{const im=new Image();im.onload=()=>{ART[k]=im;if(typeof renderEvTabs==='function'&&document.getElementById('swatches').children.length)renderEvTabs();computeLook&&computeLook();};im.src='assets/art/'+k+'.jpg';});
 function drawArt(c,W,H,t,key){
@@ -502,7 +511,7 @@ BG.weekend=[{name:'Weekend · Starfield',gold:'#f7f0a0',panel:'#33205f',frame:'#
 /* ===== State ===== */
 const S={
   sponsor:'',reg:null,story:1,logo:null,logoMode:'original',
-  ev:'altarego',vi:0,mode:'template',frame:true,accent:PP_GOLD,bg1:'#1F1F23',bg2:'#000000',
+  ev:'altarego',vi:0,mode:'merge',frame:true,accent:PP_GOLD,accentSet:false,brand:'#3d2a8a',brandStyle:'deep',inkMode:'auto',inkCustom:'#ffffff',
   pace:1,slides:[],stk:{type:'none',slide:1},showSafe:true,
   ppMode:'auto',t:0,playing:true
 };
@@ -547,9 +556,17 @@ function fitDraw(c,img,cx,cy,maxW,maxH,alpha){
 /* ===== Look: background, ink, accent ===== */
 let LOOK={dark:true,ink:'#ffffff',accent:PP_GOLD,warn:''};
 const tpl=()=>BG[S.ev][S.vi];
+// mix a hex color toward black (amt>0) or white (amt<0)
+function shade(hex,amt){const c=hexRgb(hex),t=amt>0?0:255,p=Math.abs(amt);return '#'+c.map(v=>Math.round(v+(t-v)*p).toString(16).padStart(2,'0')).join('');}
+const BRAND_STYLES=[['deep','Deep'],['rich','Rich'],['soft','Soft']];
+function brandStops(){const b=S.brand;
+  if(S.brandStyle==='rich'){const k=lum(hexRgb(b))>.55?.18:0;return [shade(b,.42+k),shade(b,.62+k),rgba(shade(b,-.4),1)];}
+  if(S.brandStyle==='soft')return [shade(b,-.82),shade(b,-.62),'rgba(255,255,255,1)'];
+  return [shade(b,.72),shade(b,.88),rgba(shade(b,-.2),1)];}
 const isArt=()=>S.mode!=='brand'&&!!tpl().art&&tpl().scrim!==false;
-function inkOn(hex){return lum(hexRgb(hex))<.32?'#ffffff':'#1b1210';}
-function panelColor(){return S.mode==='brand'?S.bg2:(tpl().panel||'#141216');}
+function bestInk(rgb){return contrast([255,255,255],rgb)>=contrast([27,18,16],rgb)?'#ffffff':'#1b1210';}
+function inkOn(hex){return bestInk(hexRgb(hex));}
+function panelColor(){return S.mode==='brand'?(S.brandStyle==='soft'?shade(S.brand,.55):shade(S.brand,.8)):(tpl().panel||'#141216');}
 function frameColor(){return S.mode==='brand'?S.accent:(tpl().frame||tpl().gold||'#f2c94c');}
 // scrim: darken artwork so centered text stays readable
 function drawBg(c,t,scrim){
@@ -562,35 +579,38 @@ function drawBg(c,t,scrim){
 }
 function drawBgRaw(c,t){
   if(S.mode==='brand'){
-    vgrad(c,W,H,[[0,S.bg1],[1,S.bg2]]);
-    radBlob(c,W,H,W*.12,H*.08,W*.75,rgba(S.accent,1),.30);
-    radBlob(c,W,H,W*.92,H*.95,W*.65,rgba(S.accent,1),.22);
+    const [a,b,glow]=brandStops();
+    vgrad(c,W,H,[[0,a],[1,b]]);
+    radBlob(c,W,H,W*.12,H*.08,W*.75,glow,.30);
+    radBlob(c,W,H,W*.92,H*.95,W*.65,glow,.22);
     return;
   }
   const v=BG[S.ev][S.vi];
   v.draw(c,W,H,t*60);
-  if(S.ev==='night'){
-    radBlob(c,W,H,W*.12,H*.08,W*.75,rgba(LOOK.accent,1),.30);
-    radBlob(c,W,H,W*.92,H*.95,W*.65,rgba(LOOK.accent,1),.22);
-  }
 }
 function computeLook(){
   // sample background luminance inside the text area
   const c=document.createElement('canvas');c.width=W;c.height=H;const x=c.getContext('2d');
-  const accent=S.mode==='template'?(S.ev==='night'?PP_GOLD:BG[S.ev][S.vi].gold):S.accent;
+  if(!S.accentSet)S.accent=BG[S.ev][S.vi].gold;
+  const accent=S.mode==='template'?BG[S.ev][S.vi].gold:S.accent;
   LOOK.accent=accent;drawBg(x,0,true);
   const d=x.getImageData(SAFE.x,600,SAFE.w,700).data;let r=0,g=0,b=0,n=0;
   for(let i=0;i<d.length;i+=4*97){r+=d[i];g+=d[i+1];b+=d[i+2];n++;}
   const avg=[r/n,g/n,b/n];const dark=lum(avg)<.32;LOOK.avg=avg;
-  LOOK.dark=dark;LOOK.ink=dark?'#ffffff':'#1b1210';
+  LOOK.dark=dark;LOOK.ink=bestInk(avg);
   LOOK.panel=panelColor();LOOK.panelInk=inkOn(LOOK.panel);
+  // text color override (auto picks light or dark for each background)
+  const pick=S.inkMode==='light'?'#ffffff':S.inkMode==='dark'?'#1b1210':S.inkMode==='custom'?S.inkCustom:null;
+  if(pick){LOOK.ink=pick;LOOK.panelInk=pick;}
+  const inkCr=Math.min(contrast(hexRgb(LOOK.ink),avg.map(Math.round)),contrast(hexRgb(LOOK.panelInk),hexRgb(LOOK.panel)));
+  LOOK.inkWarn=pick&&inkCr<4.5?'That text color is hard to read on this background. Try Auto or a lighter/darker color.':'';
   // on solid panels, swap the accent if it would disappear against the panel color
   const pr=hexRgb(LOOK.panel);
   LOOK.panelAccent=contrast(hexRgb(accent),pr)>=3?accent:[PP_GOLD,'#f2c94c','#ffffff','#2a1f63','#1b1210'].sort((a,b)=>contrast(hexRgb(b),pr)-contrast(hexRgb(a),pr))[0];
   const cr=contrast(hexRgb(accent),avg.map(Math.round));
   LOOK.warn=cr<2.2?'Your accent color is hard to read on this background. Try a lighter or darker accent, or a different template.':'';
   // in template mode on light backgrounds the event "gold" is already a dark ink; keep accent readable
-  document.getElementById('contrastWarn').textContent=LOOK.warn;
+  document.getElementById('contrastWarn').textContent=[LOOK.warn,LOOK.inkWarn].filter(Boolean).join(' ');
 }
 
 /* ===== Text layout with *accent* runs ===== */
@@ -925,15 +945,16 @@ function renderEvTabs(){
   $('swName').style.display=S.mode==='brand'?'none':'';
 }
 function renderMode(){
-  tabsHTML($('modeTabs'),[['template','Template colors'],['merge','Template + my accent'],['brand','My brand colors']],S.mode,v=>{if(v!=='template'&&S.mode==='template')S.accent=LOOK.accent;S.mode=v;refreshLook();});
+  tabsHTML($('modeTabs'),[['merge','Template + my accent'],['template','Template colors'],['brand','My brand color background']],S.mode,v=>{S.mode=v;refreshLook();});
   const cb=$('colorBox');
   const f=(key,label)=>`<span class="c"><input type="color" value="${S[key]}" data-k="${key}"> ${label}</span>`;
-  cb.innerHTML=S.mode==='template'?'<span class="hint">Uses the event\'s own text and accent colors.</span>'
+  cb.innerHTML=S.mode==='template'?'<span class="hint">Uses the template\'s own text and accent colors.</span>'
     :S.mode==='merge'?f('accent','Accent color (highlighted words, ×, caption period)')
-    :f('bg1','Background top')+f('bg2','Background bottom')+f('accent','Accent color');
-  cb.querySelectorAll('input').forEach(i=>i.oninput=()=>{S[i.dataset.k]=i.value;computeLook();saveDraft();});
+    :f('brand','Your brand color (background)')+f('accent','Accent color')+`<span class="c">Style: <span class="tabs" id="brandStyle"></span></span>`;
+  cb.querySelectorAll('input').forEach(i=>i.oninput=()=>{S[i.dataset.k]=i.value;if(i.dataset.k==='accent')S.accentSet=true;computeLook();saveDraft();});
+  if(S.mode==='brand')tabsHTML($('brandStyle'),BRAND_STYLES,S.brandStyle,v=>{S.brandStyle=v;renderMode();computeLook();saveDraft();});
 }
-function refreshLook(){renderEvTabs();renderMode();computeLook();saveDraft();}
+function refreshLook(){renderEvTabs();computeLook();renderMode();saveDraft();}
 
 function renderSlides(){
   const box=$('slides');box.innerHTML='';
@@ -985,10 +1006,17 @@ function renderSlides(){
   });
   $('addText').disabled=$('addPhoto').disabled=S.slides.length>=8;
 }
-function loadImg(file,cb){
+function loadImg(file,cb,keep){
   if(!file)return;const r=new FileReader();
-  r.onload=()=>{const im=new Image();im.onload=()=>cb(im);im.src=r.result;};r.readAsDataURL(file);
+  r.onload=()=>{const im=new Image();im.onload=()=>{
+    const m=Math.max(im.naturalWidth,im.naturalHeight);
+    if(keep||m<=2400)return cb(im);
+    // shrink very large photos (keeps saved drafts small, no visible loss at 1080x1920)
+    const k=2400/m,c=document.createElement('canvas');c.width=Math.round(im.naturalWidth*k);c.height=Math.round(im.naturalHeight*k);
+    c.getContext('2d').drawImage(im,0,0,c.width,c.height);const s2=new Image();s2.onload=()=>cb(s2);s2.src=c.toDataURL('image/jpeg',.9);};
+    im.src=r.result;};r.readAsDataURL(file);
 }
+function imgFrom(src){return new Promise(res=>{if(!src)return res(null);const im=new Image();im.onload=()=>res(im);im.onerror=()=>res(null);im.src=src;});}
 function buildTimeline(){
   const tl=$('tl');tl.innerHTML='';
   SEGS.forEach((s,k)=>{const d=document.createElement('div');d.style.flex=s.dur;d.title=k?`Slide ${k}`:'Opening';d.onclick=()=>{S.t=s.start+0.01;};tl.appendChild(d);});
@@ -1047,7 +1075,7 @@ function briefText(){
   L.push('Story: '+n);
   L.push('Video file: '+`${t}_InstagramStory${n}_Video.mp4`);
   L.push('Length: '+segs.total.toFixed(1)+'s ('+S.slides.length+' slides + opening card)');
-  L.push('Look: '+(S.mode==='brand'?`Brand colors ${S.bg1} to ${S.bg2}`:(EVENTS.find(e=>e[0]===S.ev)[1]+' / '+BG[S.ev][S.vi].name))+(S.mode!=='template'?`, accent ${S.accent}`:''));
+  L.push('Look: '+(S.mode==='brand'?`Brand color ${S.brand} (${S.brandStyle})`:(EVENTS.find(e=>e[0]===S.ev)[1]+' / '+BG[S.ev][S.vi].name))+(S.mode!=='template'?`, accent ${S.accent}`:''));
   L.push('','SLIDES');
   S.slides.forEach((s,i)=>L.push(`  ${i+1}. [${s.layout||''}] ${s.type==='photo'?'Photo'+(s.imgName?` (${s.imgName})`:'')+(s.caption?`: "${s.caption}"`:''):'Text: "'+String(s.text).replace(/\*/g,'').replace(/\n/g,' / ')+'"'}`));
   L.push('','STICKER');
@@ -1152,26 +1180,59 @@ async function exportVideo(){
     await enc.flush();enc.close();
     if(err)throw err;if(!avcC)throw new Error('No codec configuration from encoder');
     const blob=MP4.mux({width:W,height:H,fps:FPS,samples,avcC});
-    download(blob,`${fileTag()}_InstagramStory${S.story}_Video.mp4`);
+    const vname=`${fileTag()}_InstagramStory${S.story}_Video.mp4`;
+    download(blob,vname);
     fill.style.width='100%';msg.className='msg ok';msg.textContent=`Done: ${(blob.size/1e6).toFixed(1)} MB, ${segs.total.toFixed(1)}s. Upload it with your brief to your sponsor folder.`;
   }catch(e){
     msg.className='msg err';msg.textContent='Something went wrong while rendering: '+(e.message||e)+'. Try again, or email mario.guardado@pinesparty.com.';
   }finally{btn.disabled=false;S.playing=wasPlaying;setTimeout(()=>{bar.style.display='none';fill.style.width='0';},1500);}
 }
 
-/* ===== Draft (text only; photos and logo are not saved) ===== */
+/* ===== Drafts =====
+   Text and settings autosave to localStorage. "Save draft" also stores the logo and photos
+   (IndexedDB, this browser only) so the sponsor can close the page and come back. */
+const DRAFT_KEY='pp26story4:'+(new URLSearchParams(location.search).get('s')||'_');
+function idb(){return new Promise((res,rej)=>{const r=indexedDB.open('storybuilder',1);r.onupgradeneeded=()=>r.result.createObjectStore('drafts');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);});}
+async function idbDo(mode,fn){const db=await idb();return new Promise((res,rej)=>{const tx=db.transaction('drafts',mode),st=tx.objectStore('drafts');const q=fn(st);tx.oncomplete=()=>res(q&&q.result);tx.onerror=()=>rej(tx.error);});}
+function draftData(){return {
+    ev:S.ev,vi:S.vi,mode:S.mode,accent:S.accent,accentSet:S.accentSet,brand:S.brand,brandStyle:S.brandStyle,inkMode:S.inkMode,inkCustom:S.inkCustom,pace:S.pace,story:S.story,logoMode:S.logoMode,ppMode:S.ppMode,frame:S.frame,stk:S.stk,
+    slides:S.slides.map(s=>({type:s.type,layout:s.layout,text:s.text,caption:s.caption,focus:s.focus,capY:s.capY,dur:s.dur,imgName:s.imgName})),
+    tags:$('fTags').value,hash:$('fHash').value,notes:$('fNotes').value,sponsor:$('fSponsor').value};}
+async function saveFullDraft(){
+  const st=$('draftStatus');
+  try{
+    const d=draftData();d.logo=S.logo?S.logo.src:null;d.images=S.slides.map(s=>s.img?s.img.src:null);d.savedAt=Date.now();
+    await idbDo('readwrite',os=>os.put(d,DRAFT_KEY));saveDraft();
+    st.className='hint ok';st.textContent='Draft saved on this device at '+new Date().toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})+'. Come back to this page any time to keep editing.';
+  }catch(e){st.className='hint err';st.textContent='Could not save here (private browsing can block it). Your text still saves automatically.';}
+}
+async function restoreFullDraft(){
+  try{const d=await idbDo('readonly',os=>os.get(DRAFT_KEY));if(!d)return;
+    applyDraft(d);
+    const imgs=await Promise.all((d.images||[]).map(imgFrom));S.slides.forEach((s,i)=>{if(imgs[i])s.img=imgs[i];});
+    if(d.logo){const lg=await imgFrom(d.logo);if(lg){S.logo=lg;tintCache.clear();$('logoThumb').innerHTML=`<img src="${lg.src}">`;}}
+    if(d.sponsor&&!S.reg){$('fSponsor').value=d.sponsor;S.sponsor=d.sponsor;renderNaming();}
+    $('fStory').value=S.story;$('fStk').value=S.stk.type;refreshLook();renderSlides();renderSticker();invalidate();
+    const st=$('draftStatus');st.className='hint ok';st.textContent='Welcome back. Your saved draft from '+new Date(d.savedAt).toLocaleString([],{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})+' is loaded.';
+  }catch(e){}
+}
+async function resetDraft(){
+  if(!confirm('Start over? This clears your saved draft on this device.'))return;
+  try{localStorage.removeItem(DRAFT_KEY);await idbDo('readwrite',os=>os.delete(DRAFT_KEY));}catch(e){}
+  location.reload();
+}
 function saveDraft(){
-  try{localStorage.setItem('pp26story3:'+(new URLSearchParams(location.search).get('s')||'_'),JSON.stringify({
-    ev:S.ev,vi:S.vi,mode:S.mode,accent:S.accent,bg1:S.bg1,bg2:S.bg2,pace:S.pace,story:S.story,logoMode:S.logoMode,ppMode:S.ppMode,frame:S.frame,stk:S.stk,
-    slides:S.slides.map(s=>({type:s.type,layout:s.layout,text:s.text,caption:s.caption,focus:s.focus,capY:s.capY,dur:s.dur})),
-    tags:$('fTags').value,hash:$('fHash').value,notes:$('fNotes').value}));}catch(e){}
+  try{localStorage.setItem(DRAFT_KEY,JSON.stringify(draftData()));}catch(e){}
 }
 function loadDraft(){
-  try{const d=JSON.parse(localStorage.getItem('pp26story3:'+(new URLSearchParams(location.search).get('s')||'_'))||'null');if(!d)return false;
-    Object.assign(S,{ev:d.ev,vi:d.vi,mode:d.mode,accent:d.accent,bg1:d.bg1,bg2:d.bg2,pace:d.pace,story:d.story,logoMode:d.logoMode,ppMode:d.ppMode||'auto',frame:d.frame!==false,stk:d.stk||S.stk});
-    if(!BG[S.ev])S.ev='night';if(!BG[S.ev][S.vi])S.vi=0;
+  try{const d=JSON.parse(localStorage.getItem(DRAFT_KEY)||'null');if(!d)return false;applyDraft(d);return true;}catch(e){return false;}
+}
+function applyDraft(d){
+  {
+    Object.assign(S,{ev:d.ev,vi:d.vi,mode:d.mode,accent:d.accent,accentSet:!!d.accentSet,brand:d.brand||S.brand,brandStyle:d.brandStyle||'deep',inkMode:d.inkMode||'auto',inkCustom:d.inkCustom||'#ffffff',pace:d.pace,story:d.story,logoMode:d.logoMode,ppMode:d.ppMode||'auto',frame:d.frame!==false,stk:d.stk||S.stk});
+    if(!BG[S.ev])S.ev='altarego';if(!BG[S.ev][S.vi])S.vi=0;
     S.slides=(d.slides||[]).map(s=>Object.assign(newSlide(s.type),s)).map(s=>{s.text=capWords(s.text,CAP.text);s.caption=capWords(s.caption,capFor(s));return s;});
-    $('fTags').value=d.tags||'';$('fHash').value=d.hash||'';$('fNotes').value=d.notes||'';return true;}catch(e){return false;}
+    $('fTags').value=d.tags||'';$('fHash').value=d.hash||'';$('fNotes').value=d.notes||'';}
 }
 
 /* ===== Init ===== */
@@ -1185,7 +1246,10 @@ function init(){
   $('fStory').innerHTML=[1,2,3,4].map(n=>`<option value="${n}">Story ${n}</option>`).join('');$('fStory').value=S.story;
   $('fStory').onchange=()=>{S.story=+$('fStory').value;renderNaming();saveDraft();};
   $('fSponsor').oninput=()=>{S.sponsor=$('fSponsor').value;renderNaming();};
-  $('fLogo').onchange=()=>loadImg($('fLogo').files[0],im=>{S.logo=im;tintCache.clear();$('logoThumb').innerHTML=`<img src="${im.src}">`;});
+  $('fLogo').onchange=()=>loadImg($('fLogo').files[0],im=>{S.logo=im;tintCache.clear();$('logoThumb').innerHTML=`<img src="${im.src}">`;},true);
+  const ink=()=>{tabsHTML($('inkTabs'),[['auto','Auto'],['light','White'],['dark','Dark'],['custom','Custom']],S.inkMode,v=>{S.inkMode=v;ink();computeLook();saveDraft();});
+    $('inkCustom').style.display=S.inkMode==='custom'?'':'none';$('inkCustom').value=S.inkCustom;};ink();
+  $('inkCustom').oninput=()=>{S.inkCustom=$('inkCustom').value;computeLook();saveDraft();};
   const pm=()=>tabsHTML($('ppMode'),[['auto','Auto'],['white','White (inverted)'],['black','Black']],S.ppMode,v=>{S.ppMode=v;pm();saveDraft();});pm();
   const lm=()=>tabsHTML($('logoMode'),[['original','Original'],['white','White'],['black','Black']],S.logoMode,v=>{S.logoMode=v;lm();saveDraft();});lm();
   const pc=()=>tabsHTML($('paceTabs'),[[1.15,'Quick'],[1,'Standard'],[0.87,'Relaxed']],S.pace,v=>{S.pace=v;pc();invalidate();renderSlides();});pc();
@@ -1198,10 +1262,12 @@ function init(){
   $('play').onclick=()=>{S.playing=!S.playing;$('play').textContent=S.playing?'Pause':'Play';};
   $('scrub').oninput=()=>{S.playing=false;$('play').textContent='Play';S.t=$('scrub').value/1000*SEGS.total;};
   $('btnVideo').onclick=exportVideo;
+  $('btnSave').onclick=saveFullDraft;$('btnReset').onclick=resetDraft;
   $('btnBrief').onclick=()=>download(new Blob([briefText()],{type:'text/plain'}),`${fileTag()}_InstagramStory${S.story}_Brief.txt`);
   refreshLook();renderSlides();renderSticker();invalidate();renderNaming();
   document.fonts.load('700 100px Poppins').then(()=>document.fonts.load('800 100px Poppins')).finally(()=>{computeLook();});
   loadSponsor();
+  restoreFullDraft();
   requestAnimationFrame(tick);
 }
 PPLOGO.onload=init;
